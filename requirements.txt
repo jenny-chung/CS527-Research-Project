@@ -1,0 +1,3 @@
+# Core dependencies (also defined in pyproject.toml)
+# Prefer: pip install -e .
+pytest>=7.0
