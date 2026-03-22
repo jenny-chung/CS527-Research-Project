@@ -1,0 +1,20 @@
+{
+  "program": "prog_02_random",
+  "flaky_tests": [
+    {
+      "test_id": "test_flaky.py::test_random_values",
+      "pattern": "unseeded_randomness",
+      "root_cause": "get_random_values uses random without seed",
+      "expected_fix": "Add random.seed() before call"
+    },
+    {
+      "test_id": "test_flaky.py::test_random_shuffle",
+      "pattern": "unseeded_randomness",
+      "root_cause": "random.shuffle without seed",
+      "expected_fix": "Add random.seed() before shuffle"
+    }
+  ],
+  "deterministic_tests": [
+    "test_deterministic.py::test_random_seeded"
+  ]
+}

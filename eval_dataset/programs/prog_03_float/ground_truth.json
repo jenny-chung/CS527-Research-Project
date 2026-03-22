@@ -1,0 +1,14 @@
+{
+  "program": "prog_03_float",
+  "flaky_tests": [
+    {
+      "test_id": "test_flaky.py::test_float_exact_equality",
+      "pattern": "float_equality",
+      "root_cause": "Exact == on floats; representation varies",
+      "expected_fix": "Use pytest.approx()"
+    }
+  ],
+  "deterministic_tests": [
+    "test_deterministic.py::test_float_approx"
+  ]
+}

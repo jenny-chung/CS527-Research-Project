@@ -1,0 +1,39 @@
+{
+  "program": "prog_01_dict_iter",
+  "flaky_tests": [
+    {
+      "test_id": "test_flaky.py::test_dict_items_iteration_order",
+      "pattern": "unordered_iteration",
+      "root_cause": "Iterates dict.items() without sorted(); order varies with PYTHONHASHSEED",
+      "expected_fix": "Use sorted(d.items())"
+    },
+    {
+      "test_id": "test_flaky.py::test_dict_keys_iteration",
+      "pattern": "unordered_iteration",
+      "root_cause": "Iterates dict.keys() without sorted()",
+      "expected_fix": "Use sorted(d.keys())"
+    },
+    {
+      "test_id": "test_flaky.py::test_set_iteration",
+      "pattern": "unordered_iteration",
+      "root_cause": "Set iteration order varies with PYTHONHASHSEED",
+      "expected_fix": "Use sorted(s)"
+    },
+    {
+      "test_id": "test_flaky.py::test_dict_values_direct",
+      "pattern": "unordered_iteration",
+      "root_cause": "Iterating dict directly without sorted()",
+      "expected_fix": "Use sorted(d)"
+    },
+    {
+      "test_id": "test_flaky.py::test_set_first_element",
+      "pattern": "unordered_iteration",
+      "root_cause": "Set iteration order varies with PYTHONHASHSEED",
+      "expected_fix": "Use sorted(s)"
+    }
+  ],
+  "deterministic_tests": [
+    "test_deterministic.py::test_dict_items_sorted",
+    "test_deterministic.py::test_basic_math"
+  ]
+}
