@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from id_flakies.variant_generator import (
+from pyidfix.variant_generator import (
     VariantResult,
     is_flaky,
     run_test_with_variants,

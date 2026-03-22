@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from id_flakies.variant_generator import VariantResult, is_flaky, run_test_with_variants
+from pyidfix.variant_generator import VariantResult, is_flaky, run_test_with_variants
 
 
 def validate_patched_test(

@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from id_flakies.analyzer import analyze_file
-from id_flakies.patch_generator import generate_patch, patch_file
-from id_flakies.run import run_pipeline
-from id_flakies.validator import validate_patched_test
-from id_flakies.variant_generator import is_flaky, run_test_with_variants
+from pyidfix.analyzer import analyze_file
+from pyidfix.patch_generator import generate_patch, patch_file
+from pyidfix.run import run_pipeline
+from pyidfix.validator import validate_patched_test
+from pyidfix.variant_generator import is_flaky, run_test_with_variants
 
 
 def test_full_pipeline_prog_01_flaky():

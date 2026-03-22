@@ -1,6 +1,6 @@
 # Evaluation Dataset
 
-Ground-truth dataset for evaluating ID Flakies. Each program contains intentionally
+Ground-truth dataset for evaluating PyIDFix. Each program contains intentionally
 flaky tests with known patterns and documented expected fixes.
 
 ## Structure

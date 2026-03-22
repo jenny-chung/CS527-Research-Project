@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from id_flakies.analyzer import Finding, analyze_file, analyze_source
+from pyidfix.analyzer import Finding, analyze_file, analyze_source
 
 
 def test_analyze_empty_source():

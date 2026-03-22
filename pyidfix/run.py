@@ -7,10 +7,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from id_flakies.analyzer import Finding, analyze_file
-from id_flakies.patch_generator import generate_patch
-from id_flakies.validator import validate_patched_test
-from id_flakies.variant_generator import is_flaky, run_test_with_variants
+from pyidfix.analyzer import Finding, analyze_file
+from pyidfix.patch_generator import generate_patch
+from pyidfix.validator import validate_patched_test
+from pyidfix.variant_generator import is_flaky, run_test_with_variants
 
 
 @dataclass

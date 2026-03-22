@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from id_flakies.validator import validate_patched_test
+from pyidfix.validator import validate_patched_test
 
 
 def test_validate_deterministic_test():

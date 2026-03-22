@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from id_flakies.analyzer import Finding, analyze_file
-from id_flakies.patch_generator import generate_patch, patch_file
+from pyidfix.analyzer import Finding, analyze_file
+from pyidfix.patch_generator import generate_patch, patch_file
 
 
 def test_patch_list_items_to_sorted():

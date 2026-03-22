@@ -9,7 +9,7 @@ import ast
 import re
 from pathlib import Path
 
-from id_flakies.analyzer import Finding
+from pyidfix.analyzer import Finding
 
 
 def generate_patch(source: str, findings: list[Finding]) -> str:

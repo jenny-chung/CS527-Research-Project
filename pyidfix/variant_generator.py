@@ -69,7 +69,7 @@ def run_test_with_variants(
         for seed in random_seeds:
             env = os.environ.copy()
             env["PYTHONHASHSEED"] = "0"  # Keep hash fixed for random-seed variant
-            env["ID_FLAKIES_RANDOM_SEED"] = str(seed)
+            env["PYIDFIX_RANDOM_SEED"] = str(seed)
             result = _run_pytest(pytest_target, env, cwd, python_executable)
             results.append(
                 VariantResult(

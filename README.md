@@ -1,4 +1,4 @@
-# CS527 Research Project: ID Flakies
+# CS527 Research Project: PyIDFix
 
 Automatic detection and repair of implementation-dependent (ID) flaky tests in Python.
 
@@ -8,7 +8,7 @@ Automatic detection and repair of implementation-dependent (ID) flaky tests in P
 
 ## Overview
 
-ID Flakies is a Pytest plugin that:
+PyIDFix is a Pytest plugin that:
 
 1. **Detects** suspicious patterns (unordered iteration, unseeded randomness, etc.)
 2. **Confirms** flakiness via execution under varied environments
@@ -46,7 +46,7 @@ pip install -e .
 This installs:
 
 - `pytest>=7.0` (required for the plugin)
-- The `id_flakies` package as an editable install
+- The `pyidfix` package as an editable install
 
 ### 3. Verify Installation
 
@@ -56,7 +56,7 @@ pytest tests/ -v
 
 # Verify the plugin is discoverable
 pytest --version
-pip show id-flakies
+pip show pyidfix
 ```
 
 ### Optional: Development Dependencies
@@ -77,7 +77,7 @@ CS527-Research-Project/
 ├── README.md
 ├── .gitignore
 │
-├── id_flakies/         # Main tool (Pytest plugin)
+├── pyidfix/            # Main tool (Pytest plugin)
 │   ├── __init__.py
 │   ├── plugin.py       # Pytest hooks
 │   ├── analyzer.py     # Static Pattern Analyzer
@@ -101,10 +101,10 @@ CS527-Research-Project/
 ### Programmatic API
 
 ```python
-from id_flakies.analyzer import analyze_file
-from id_flakies.patch_generator import patch_file
-from id_flakies.validator import validate_patched_test
-from id_flakies.variant_generator import run_test_with_variants, is_flaky
+from pyidfix.analyzer import analyze_file
+from pyidfix.patch_generator import patch_file
+from pyidfix.validator import validate_patched_test
+from pyidfix.variant_generator import run_test_with_variants, is_flaky
 
 # 1. Analyze a test file for suspicious patterns
 findings = analyze_file("tests/test_flaky.py")

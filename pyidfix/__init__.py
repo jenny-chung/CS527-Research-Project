@@ -1,5 +1,5 @@
 """
-ID Flakies: Automatic detection and repair of implementation-dependent
+PyIDFix: Automatic detection and repair of implementation-dependent
 flaky tests in Python.
 
 A Pytest plugin that identifies tests with wrong assumptions about
