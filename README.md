@@ -15,6 +15,8 @@ PyIDFix is a Pytest plugin that:
 3. **Generates** deterministic patches
 4. **Validates** that patches eliminate flakiness
 
+**Documentation:** [Component design & test coverage](docs/COMPONENTS.md) · [Roadmap & evaluation next steps](docs/NEXT_STEPS.md)
+
 ---
 
 ## Environment Setup
