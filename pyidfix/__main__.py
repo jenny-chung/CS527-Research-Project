@@ -13,30 +13,32 @@ import click
 from rich import box
 from rich.columns import Columns
 from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
-console = Console()
 
 # pipeline imports (analyzer, variant generator, patch generator, validator)
 from pyidfix.analyzer import Finding, analyze_file
-from pyidfix.variant_generator import VariantResult, run_test_with_variants
+from pyidfix.variant_generator import VariantResult, is_flaky, run_test_with_variants
 from pyidfix.patch_generator import generate_patch
 from pyidfix.validator import validate_patched_file
 
 DEFAULT_SEEDS = list(range(20))
 
 PATTERN_COLORS = {
-    "unordered_iteration": "yellow",
-    "unseeded_randomness": "magenta",
-    "float_equality": "cyan",
+    "unordered_iteration": "cornflower_blue",
+    "unseeded_randomness": "orange1",
+    "float_equality": "medium_violet_red",
 }
 
-# Formatting
-def _stage_name(label: str, title: str):
+console = Console()
+
+# Formatting and display methods
+def _stage_name(title: str):
     console.print()
-    console.rule(f"[bold white]{label}[/bold white] [dim]{title}[/dim]", style="bright_blue")
+    console.rule(f"[bold white]{title}[/bold white]", style="bright_blue")
     console.print()
 
 def _display_findings(findings: list[Finding]):
@@ -44,22 +46,127 @@ def _display_findings(findings: list[Finding]):
         console.print("  [dim](no findings)[/dim]")
         return
     
-    # Finding: pattern, line, column, message, code snipper
+    # Finding: pattern, line, column, message, code snipper, function name
     table = Table(box=box.SIMPLE, show_header=True, header_style="bold dim", padding=(0, 1))
     table.add_column("Line",    style="dim",  justify="right", width=6)
     table.add_column("Pattern", justify="left", width=26)
     table.add_column("Message", justify="left")
     table.add_column("Code Snippet", style="dim italic", justify="left")
+    table.add_column("Function Name", style="dim", justify="left", width=50)
     for f in findings:
         color = PATTERN_COLORS.get(f.pattern, "white")
         table.add_row(
             str(f.line),
             f"[{color}] {f.pattern} [/{color}]",
             f.message,
-            f.code_snippet
+            f.code_snippet,
+            f.function_name
         )
 
     console.print(table)
+
+def _display_grid(results: list[VariantResult], cols: int = 10, verbose: bool = False):
+    # VariantResult: variant_key, passed, stdout, stderr, return_code
+    
+    # Summary counts
+    num_passed = sum(1 for r in results if r.passed)
+    num_failed = len(results) - num_passed
+    console.print(
+        f"  [sea_green3]{num_passed} passed[/sea_green3]  [red3]{num_failed} failed[/red3]"
+        f"  [dim]out of {len(results)} seeds[/dim]\n"
+    )
+    console.print()
+
+    # Seed grid
+    # cells = []
+    # for r in results:
+    #     num = r.variant_key.split("_")[-1]
+    #     if r.passed:
+    #         cells.append(Text(f" seed={num}: ✓ ", style="bold green"))
+    #     else:
+    #         cells.append(Text(f" seed={num}: ✗ ", style="bold red"))
+    # console.print(Columns(cells, equal=True, expand=False))
+
+    # if verbose:
+    #     failed_runs = [r for r in results if not r.passed]
+    #     if failed_runs:
+    #         console.print()
+    #         console.print("  [yellow]First failed run output (truncated):[/yellow]")
+    #         for ln in (failed_runs[0].stdout or failed_runs[0].stderr or "").splitlines()[:10]:
+    #             console.print(f"  [dim]{ln}[/dim]")
+    # table = Table(
+    #     box=box.SIMPLE_HEAD,
+    #     show_header=True,
+    #     show_edge=True,
+    #     header_style="bold dim",
+    #     padding=(0, 1),
+    # )
+    # for c in range(cols):
+    #     table.add_column(f"seed {c}", justify="center", width=8)
+ 
+    # # Split results into rows
+    # for row_start in range(0, len(results), cols):
+    #     row_results = results[row_start : row_start + cols]
+    #     cells = []
+    #     for r in row_results:
+    #         if r.passed:
+    #             cells.append("[bold sea_green3]  PASS  [/bold sea_green3]")
+    #         else:
+    #             cells.append("[bold red3]  FAIL  [/bold red3]")
+    #     # Pad last row if fewer than cols entries
+    #     while len(cells) < cols:
+    #         cells.append("")
+    #     table.add_row(*cells)
+ 
+    # console.print(table)
+
+    for row_start in range(0, len(results), cols):
+        chunk = results[row_start : row_start + cols]
+
+        table = Table(
+            box=box.SIMPLE_HEAD,
+            show_header=True,
+            show_edge=False,
+            header_style="dim",
+            padding=(0, 2),
+        )
+        
+        for r in chunk:
+            num = r.variant_key.split("_")[-1]
+            table.add_column(f"seed {num}", justify="center", width=12)
+
+        cells = []
+        for r in chunk:
+            if r.passed:
+                cells.append("[bold green3] PASS [/bold green3]")
+            else:
+                cells.append("[bold indian_red] FAIL [/bold indian_red]")
+        table.add_row(*cells)
+        console.print(table)
+        console.print()
+        
+    if verbose:
+        failed_runs = [r for r in results if not r.passed]
+        if failed_runs:
+            console.print()
+            console.print("  [yellow1]First failed run output (truncated):[/yellow1]")
+            for ln in (failed_runs[0].stdout or failed_runs[0].stderr or "").splitlines()[:10]:
+                console.print(f"  [dim]{ln}[/dim]")
+
+def _display_flakiness_result(flaky: bool):
+    console.print()
+    if flaky:
+        console.print(Panel(
+            "[bold red3]Outcomes differ across seeds[/bold red3]\n"
+            "[dim]→ confirmed implementation-dependent flakiness[/dim]",
+            border_style="red", padding=(0, 2),
+        ))
+    else:
+        console.print(Panel(
+            "[bold medium_purple3]All outcomes identical[/bold medium_purple3]\n"
+            "[dim]→ not flaky by hash-seed variation[/dim]",
+            border_style="medium_purple3", padding=(0, 2),
+        ))
 
 
 def write_json(json_out: str | None, record: dict):
@@ -96,14 +203,10 @@ def run_demo(
             padding=(0, 2),
         ))
 
-    # 1. Static analysis -> findings
-    # 2. (Optional) Run variant execution to confirm flaky tests
-    # 3. Generate patch
-    # 4. Write patched file to .patched copy and validate (future)
-
+  
     # 1. Static Analysis -> findings
     if not quiet:
-        _stage_name("Stage 1:", "Static Analysis")
+        _stage_name("Stage 1: Static Analysis")
     
     all_findings = analyze_file(file_path)
     findings = [f for f in all_findings if f.function_name == test_name] if test_name else all_findings
@@ -129,10 +232,42 @@ def run_demo(
         write_json(json_out, record)
         return 0
 
+    # 2. Variant Generator: run variant execution to confirm flaky tests
+    if not quiet:
+        _stage_name("Stage 2: Variant Execution")
+        console.print(f"  Running [bold]{len(seeds)}[/bold] PYTHONHASHSEED variants... \n")
 
-    # 2. Variant Generator
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        console=console,
+        transient=True,  # clear the bar once done
+        disable=quiet,
+    ) as progress:
+        task = progress.add_task(f"Running {len(seeds)} hash seeds…", total=len(seeds))
+        results = run_test_with_variants(test_path, hash_seeds=seeds)
+        progress.update(task, completed=len(seeds))
+
+    flaky = is_flaky(results)
+    record["stages"]["2_variant_execution"] = {
+        "results": [{"seed": r.variant_key, "passed": r.passed} for r in results],
+        "is_flaky": flaky,
+    }
+
+    if not quiet:
+        _display_grid(results, verbose=verbose)
+        _display_flakiness_result(flaky)
 
 
+    # 3. Generate patch
+    if not quiet:
+        _stage_name("Stage 3: Patch Generation")
+
+
+    # 4. Write patched file to .patched copy and validate (future)
 
 
 @click.group()
@@ -152,8 +287,8 @@ def demo(
     verbose: bool,
     json_out: str | None,
     seeds: int):
-    # run the 4 stage pipeline on a single test
-    run_demo(test_path, quiet=quiet, verbose=verbose, json_out=json_out, seeds=list(range(seeds)))
+    # run the 4 stage pipeline on a single test and narrate each step
+    sys.exit(run_demo(test_path, quiet=quiet, verbose=verbose, json_out=json_out, seeds=list(range(seeds))))
     
 if __name__ == "__main__":
     main()
