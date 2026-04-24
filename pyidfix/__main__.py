@@ -73,7 +73,7 @@ def _display_grid(results: list[VariantResult], cols: int = 10, verbose: bool = 
     num_failed = len(results) - num_passed
     console.print(
         f"  [sea_green3]{num_passed} passed[/sea_green3]  [red3]{num_failed} failed[/red3]"
-        f"  [dim]out of {len(results)} seeds[/dim]\n"
+        f"  [dim]out of {len(results)} seeds in total[/dim]\n"
     )
     console.print()
 
@@ -157,17 +157,34 @@ def _display_flakiness_result(flaky: bool):
     console.print()
     if flaky:
         console.print(Panel(
-            "[bold red3]Outcomes differ across seeds[/bold red3]\n"
-            "[dim]→ confirmed implementation-dependent flakiness[/dim]",
+            "[bold red3]Test results differ across seeds[/bold red3]\n"
+            "→ confirmed implementation-dependent flakiness",
             border_style="red", padding=(0, 2),
         ))
     else:
         console.print(Panel(
-            "[bold medium_purple3]All outcomes identical[/bold medium_purple3]\n"
-            "[dim]→ not flaky by hash-seed variation[/dim]",
+            "[bold medium_purple3]All test results identical[/bold medium_purple3]\n"
+            "→ not flaky by hash-seed variation",
             border_style="medium_purple3", padding=(0, 2),
         ))
 
+def _display_diff(original: str, patched: str, filename: str):
+    diff_lines = list(difflib.unified_diff(
+        original.splitlines(keepends=True),
+        patched.splitlines(keepends=True),
+        fromfile=f"a/{filename}",
+        tofile=f"b/{filename}",
+        lineterm="",
+    ))
+
+    if not diff_lines:
+        console.print("  [dim](No changes)[/dim]")
+        return
+
+    console.print(Panel(
+        Syntax("".join(diff_lines), "diff", theme="monokai", line_numbers=False),
+        border_style="dim", padding=(0, 1),
+    ))
 
 def write_json(json_out: str | None, record: dict):
     if json_out:
@@ -200,7 +217,7 @@ def run_demo(
             f"[bold white]{test_path}[/bold white]\n",
             title="[bold bright_blue] PyIDFix Demo [/bold bright_blue]",
             border_style="bright_blue",
-            padding=(0, 2),
+            padding=(0, 1),
         ))
 
   
@@ -252,7 +269,7 @@ def run_demo(
         progress.update(task, completed=len(seeds))
 
     flaky = is_flaky(results)
-    record["stages"]["2_variant_execution"] = {
+    record["stages"]["2: Variant Execution"] = {
         "results": [{"seed": r.variant_key, "passed": r.passed} for r in results],
         "is_flaky": flaky,
     }
@@ -266,8 +283,34 @@ def run_demo(
     if not quiet:
         _stage_name("Stage 3: Patch Generation")
 
+    patched_source = generate_patch(original_source, findings)
+    changed = patched_source != original_source
+    record["stages"]["3 Patch Generation"] = {"changed": changed}
 
-    # 4. Write patched file to .patched copy and validate (future)
+    if not quiet:
+        if changed:
+            # Unified diff
+            console.print("  [bold green]Patch applied.[/bold green]  Here is the unified diff: [dim](red = original, green = patched)[/dim]\n")
+            _display_diff(original_source, patched_source, file_path.name)
+        else:
+            console.print("  [yellow]Patch generator produced no changes.[/yellow]")
+    
+    if not changed:
+        record["summary"] = "Patch generator made no changes."
+        write_json(json_out, record)
+        return 1
+    
+    patched_path = file_path.with_stem(file_path.stem + "_patched")
+    patched_path.write_text(patched_source)
+    record["stages"]["3 Patch Generation"]["patched_file"] = str(patched_path)
+
+    if not quiet:
+        console.print(f"\n Patched file written to: [dim]{patched_path}[/dim]")
+
+
+    # 4. Write patched file to .patched copy and validate
+    if not quiet:
+        _stage_name("Stage 4: Validation")
 
 
 @click.group()
@@ -279,8 +322,7 @@ def main():
 @click.option("-q", "--quiet", is_flag=True, help="One-line summary.")
 @click.option("-v", "--verbose", is_flag=True, help="Show failed pytest output.")
 @click.option("--json-out", metavar="PATH", default=None, help="Write JSON record to this specified path.")
-@click.option("--seeds", metavar="N", default=20, show_default=True,
-              help="Number of hash seeds to try, 0..N-1.")
+@click.option("--seeds", metavar="N", default=20, show_default=True, help="Number of hash seeds to try, 0..N-1.")
 def demo(
     test_path: str,
     quiet: bool,
