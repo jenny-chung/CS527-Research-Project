@@ -4,7 +4,6 @@ from source import get_items, get_keys
 
 
 def test_dict_items_iteration_order():
-    # TODO: fix flakiness
     """FLAKY: Assumes dict.items() iteration order is deterministic."""
     items = list(get_items().items())
     assert items == [("a", 97), ("b", 98), ("c", 99)]
@@ -26,7 +25,7 @@ def test_set_iteration():
 def test_dict_values_direct():
     """FLAKY: Dict built from set, iterating directly (keys) without sorted."""
     base = {"m", "n", "o"}
-    d = {k : 1 for k in base}
+    d = {k: 1 for k in base}
     keys = list(d)
     assert keys == ["m", "n", "o"]
 

@@ -2,9 +2,14 @@
 
 
 def get_items():
-    """Return a dict. CPython 3.7+ preserves insertion order, but hash seed affects."""
-    return {"a": 1, "b": 2, "c": 3}
+    """Return a dict built from unordered source. CPython 3.7+ preserves insertion order"""
+    keys = {"a", "b", "c"}
+    d = {k: ord(k) for k in keys}
+    return d
 
 
 def get_keys():
-    return {"x": 10, "y": 20, "z": 30}.keys()
+    """Return keys from set derived dictionary"""
+    keys = {"x", "y", "z"}
+    d = {k: i for i, k in enumerate(keys)}
+    return d.keys()

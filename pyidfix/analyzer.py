@@ -188,24 +188,58 @@ class PatternVisitor(ast.NodeVisitor):
                 # Check value: list(x.items()), list(x.keys()), list(x) for set
                 if isinstance(node.value, ast.Call):
                     if isinstance(node.value.func, ast.Name):
-                        if node.value.func.id == "list":
-                            arg = node.value.args[0] if node.value.args else None
-                            if arg and self._is_unordered_collection_arg(arg):
+                        func_name = node.value.func.id
+                        arg = node.value.args[0] if node.value.args else None
+                        if func_name == "list" and arg and self._is_unordered_collection_arg(arg):
+                            self._add(
+                                Finding(
+                                    pattern="unordered_iteration",
+                                    line=node.lineno,
+                                    column=node.col_offset,
+                                    message="list(dict.items/keys/set) without sorted(); order varies",
+                                    code_snippet=self._get_snippet(node),
+                                    function_name=self._current_function,
+                                )
+                            )
+                        # next(iter(s)) grabs first element of unordered collection
+                        elif func_name == "next" and arg:
+                            if self._is_iter_of_unordered(arg):
                                 self._add(
                                     Finding(
                                         pattern="unordered_iteration",
                                         line=node.lineno,
                                         column=node.col_offset,
-                                        message="list(dict.items/keys/set) without sorted(); order varies",
+                                        message="next(iter(set/dict)) without sorted(); first element order varies",
                                         code_snippet=self._get_snippet(node),
                                         function_name=self._current_function,
                                     )
                                 )
         self.generic_visit(node)
 
+    def _is_iter_of_unordered(self, node: ast.AST) -> bool:
+        """Detect iter(some_name) where the name is likely a set/dict."""
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "iter"
+            and node.args
+        ):
+            return isinstance(node.args[0], ast.Name)
+        return False
+
     def _is_unordered_collection_arg(self, node: ast.AST) -> bool:
+        # d.items(), d.keys(), d.values()
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
             return node.func.attr in ("items", "keys", "values")
+        # literal set: {1, 2, 3}
         if isinstance(node, ast.Set):
             return True
+        # list(s) — could be a set or dict variable
+        if isinstance(node, ast.Name):
+            return True
+        # list(fn()) — function call that returns keys/values
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            name = node.func.id.lower()
+            if any(kw in name for kw in ("key", "value", "item", "set", "dict")):
+                return True
         return False
