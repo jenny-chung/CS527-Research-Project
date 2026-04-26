@@ -19,12 +19,22 @@ from pathlib import Path
 # Make sure the package is importable when run from project root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-
 # pipeline imports
 from pyidfix.analyzer import analyze_file
 from pyidfix.patch_generator import generate_patch
 from pyidfix.validator import validate_patched_test
 from pyidfix.variant_generator import _infer_cwd, is_flaky, run_test_with_variants
+
+from rich import box
+from rich.panel import Panel
+from rich.rule import Rule
+from rich.table import Table
+from rich.text import Text
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich.console import Console
+console = Console()
+
+DEFAULT_SEEDS = list(range(10))
 
 # Data classes
 @dataclass
@@ -169,3 +179,95 @@ def check_stage_3(prog_dir: Path, ground_truth: dict, seeds: list[int]) -> list[
 
     return results
 
+def evaluate_program(prog_dir: Path, seeds: list[int]) -> ProgramResult:
+    # Run all three stages for a program
+    ground_truth_path = prog_dir/"ground_truth.json"
+    ground_truth = json.loads(ground_truth_path.read_text())
+    result = ProgramResult(program=prog_dir.name)
+
+    result.stage_1 = check_stage_1(prog_dir, ground_truth)
+    result.stage_2 = check_stage_2(prog_dir, ground_truth, seeds)
+    result.stage_3 = check_stage_3(prog_dir, ground_truth, seeds)
+
+    return result
+
+def _display_program_detail(result: ProgramResult):
+    pass
+
+def main():
+    # Arguments for evaluation
+    parser = argparse.ArgumentParser(
+        description="PyIDFix batch evaluation across eval_dataset/programs/",
+    )
+    parser.add_argument(
+        "--seeds", type=int, default=10, metavar="N",
+        help="Number of hash seeds per test (default: 10)",
+    )
+    parser.add_argument(
+        "--prog", default=None, metavar="NAME",
+        help="Evaluate only this program folder (e.g. prog_01_dict_iter)",
+    )
+    parser.add_argument(
+        "--out", default="eval_results/results.json", metavar="PATH",
+        help="Path to write JSON results (default: eval_results/results.json)",
+    )
+    parser.add_argument(
+        "--detail", action="store_true",
+        help="Print per-test breakdown for each program",
+    )
+    args = parser.parse_args()
+
+    # seeds = list(range(args.seeds))
+    project_root = Path(__file__).resolve().parent.parent
+    programs_dir = project_root/"eval_dataset"/"programs"
+
+    if args.prog:
+        prog_dirs = [programs_dir/args.prog]
+        if not prog_dirs[0].exists():
+            console.print(f"[red]Program not found: {args.prog}[/red]")
+            sys.exit(2)
+    else:
+        prog_dirs = sorted([
+            p for p in programs_dir.iterdir()
+            if p.is_dir() and (p/"ground_truth.json").exists()
+        ])
+
+    if not prog_dirs:
+        console.print("[red]No programs found in eval_dataset/programs/[/red]")
+        sys.exit(2)
+
+    # Header
+    console.print()
+    console.print(Panel(
+        f"[bold white]Evaluating {len(prog_dirs)} program(s)[/bold white]\n"
+        f"[dim]{args.seeds} seeds per test  ·  Stages 1 / 2 / 3[/dim]",
+        title="[bold bright_blue] PyIDFix Evaluation [/bold bright_blue]",
+        border_style="bright_blue",
+        padding=(0, 2),
+    ))
+
+    # Run evaluations with progress bar
+    all_results: list[ProgramResult] = []
+    start_time = time.time()
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        console=console,
+        transient=True,
+    ) as progress:
+        task = progress.add_task("  Evaluating programs…", total=len(prog_dirs))
+        for prog_dir in prog_dirs:
+            progress.update(task, description=f"  Evaluating [bold]{prog_dir.name}[/bold]…")
+            result = evaluate_program(prog_dir, DEFAULT_SEEDS)
+            all_results.append(result)
+            if args.detail:
+                _display_program_detail(result)
+            progress.advance(task)
+
+    elapsed = time.time() - start_time
+
+if __name__ == "__main__":
+    main()
