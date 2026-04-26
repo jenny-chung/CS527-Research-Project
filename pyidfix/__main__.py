@@ -285,7 +285,7 @@ def run_demo(
         progress.update(task, completed=len(seeds))
 
     flaky = is_flaky(results)
-    record["stages"]["2: Variant Execution"] = {
+    record["stages"]["2: Variant_Execution"] = {
         "results": [{"seed": r.variant_key, "passed": r.passed} for r in results],
         "is_flaky": flaky,
     }
@@ -301,7 +301,7 @@ def run_demo(
 
     patched_source = generate_patch(original_source, findings)
     changed = patched_source != original_source
-    record["stages"]["3 Patch Generation"] = {"changed": changed}
+    record["stages"]["3: Patch_Generation"] = {"changed": changed}
 
     if not quiet:
         if changed:
@@ -318,7 +318,7 @@ def run_demo(
     
     patched_path = file_path.with_stem(file_path.stem + "_patched")
     patched_path.write_text(patched_source)
-    record["stages"]["3 Patch Generation"]["patched_file"] = str(patched_path)
+    record["stages"]["3: Patch_Generation"]["patched_file"] = str(patched_path)
 
     if not quiet:
         console.print(f"\n Patched file written to: [dim]{patched_path}[/dim]")
@@ -348,7 +348,7 @@ def run_demo(
             progress.advance(task)
 
     validation_ok = all(r.passed for r in after_results) and not is_flaky(after_results)
-    record["stages"]["4 Validation"] = {
+    record["stages"]["4: Validation"] = {
         "results": [{"seed": r.variant_key, "passed": r.passed} for r in after_results],
         "validation_passed": validation_ok,
     }
@@ -372,8 +372,8 @@ def run_demo(
 
         summary.add_row(
             f"[dim]{short_path}[/dim]",
-            f"[dim]flaky:[/dim] {flaky_val}",
-            f"[dim]patch:[/dim] {valid_val}"
+            f"[dim]flaky before:[/dim] {flaky_val}",
+            f"[dim]validate after patch:[/dim] {valid_val}"
         )
         console.print()
         console.print(summary)
