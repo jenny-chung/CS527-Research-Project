@@ -21,9 +21,9 @@ from rich.text import Text
 
 # pipeline imports (analyzer, variant generator, patch generator, validator)
 from pyidfix.analyzer import Finding, analyze_file
-from pyidfix.variant_generator import VariantResult, is_flaky, run_test_with_variants
+from pyidfix.variant_generator import VariantResult, _infer_cwd, is_flaky, run_test_with_variants
 from pyidfix.patch_generator import generate_patch
-from pyidfix.validator import validate_patched_file
+from pyidfix.validator import validate_patched_test, validate_patched_file
 
 DEFAULT_SEEDS = list(range(20))
 
@@ -133,6 +133,7 @@ def _display_grid(results: list[VariantResult], cols: int = 10, verbose: bool = 
         
         for r in chunk:
             num = r.variant_key.split("_")[-1]
+            num = int(num) + 1
             table.add_column(f"seed {num}", justify="center", width=12)
 
         cells = []
@@ -168,12 +169,12 @@ def _display_flakiness_result(flaky: bool):
             border_style="medium_purple3", padding=(0, 2),
         ))
 
-def _display_diff(original: str, patched: str, filename: str):
+def _display_diff(original: str, patched: str, from_name: str, to_name: str):
     diff_lines = list(difflib.unified_diff(
         original.splitlines(keepends=True),
         patched.splitlines(keepends=True),
-        fromfile=f"a/{filename}",
-        tofile=f"b/{filename}",
+        fromfile=f"a/{from_name}",
+        tofile=f"b/{to_name}",
         lineterm="",
     ))
 
@@ -182,9 +183,25 @@ def _display_diff(original: str, patched: str, filename: str):
         return
 
     console.print(Panel(
-        Syntax("".join(diff_lines), "diff", theme="monokai", line_numbers=False),
+        Syntax("".join(diff_lines), "diff", theme="monokai", line_numbers=True),
         border_style="dim", padding=(0, 1),
     ))
+
+
+def _display_validation_results(validation_ok: bool, results: list[VariantResult], test_path: str):
+    console.print()
+    if validation_ok:
+        console.print(Panel(
+            f"[bold green]✓  All seeds pass — flakiness eliminated in {test_path.split('/')[-1]} :)[/bold green]",
+            border_style="green", padding=(0, 2),
+        ))
+    else:
+        msg = (
+            "[bold red]✗  Still flaky after patch — manual review needed[/bold red]"
+            if is_flaky(results)
+            else "[bold red]✗  Test fails consistently — patch may have broken it[/bold red]"
+        )
+        console.print(Panel(msg, border_style="red", padding=(0,2)))
 
 def write_json(json_out: str | None, record: dict):
     if json_out:
@@ -254,7 +271,6 @@ def run_demo(
         _stage_name("Stage 2: Variant Execution")
         console.print(f"  Running [bold]{len(seeds)}[/bold] PYTHONHASHSEED variants... \n")
 
-    
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -291,7 +307,7 @@ def run_demo(
         if changed:
             # Unified diff
             console.print("  [bold green]Patch applied.[/bold green]  Here is the unified diff: [dim](red = original, green = patched)[/dim]\n")
-            _display_diff(original_source, patched_source, file_path.name)
+            _display_diff(original_source, patched_source, file_path.name, file_path.stem + '_patched' + file_path.suffix)
         else:
             console.print("  [yellow]Patch generator produced no changes.[/yellow]")
     
@@ -312,6 +328,59 @@ def run_demo(
     if not quiet:
         _stage_name("Stage 4: Validation")
 
+    patched_test_path = f"{patched_path}::{test_name}" if test_name else str(patched_path)
+    cwd = _infer_cwd(test_path)
+
+    after_results = []
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        console=console,
+        transient=True,
+        disable=quiet,
+    ) as progress:
+        task = progress.add_task(f"  Validating across {len(seeds)} seeds…", total=len(seeds))
+        for seed in seeds:
+            _, partial = validate_patched_test(patched_test_path, hash_seeds=[seed], cwd=cwd)
+            after_results.extend(partial)
+            progress.advance(task)
+
+    validation_ok = all(r.passed for r in after_results) and not is_flaky(after_results)
+    record["stages"]["4 Validation"] = {
+        "results": [{"seed": r.variant_key, "passed": r.passed} for r in after_results],
+        "validation_passed": validation_ok,
+    }
+
+    if not quiet:
+        _display_grid(after_results, verbose=verbose)
+        _display_validation_results(validation_ok, after_results, test_path)
+
+
+    # Pipeline quiet summary
+    if quiet:
+        summary = Table(box=box.ROUNDED, show_header=False, padding=(0, 2), border_style="dim")
+        summary.add_column(justify="left")
+        summary.add_column(justify="left")
+        summary.add_column(justify="left")
+
+        flaky_val = "[bold red]YES[/bold red]" if flaky else "[bold green]NO[/bold green]"
+        valid_val = "[bold green]PASS[/bold green]" if validation_ok else "[bold red]FAIL[/bold red]"
+
+        short_path = test_path.split("/")[-1]
+
+        summary.add_row(
+            f"[dim]{short_path}[/dim]",
+            f"[dim]flaky:[/dim] {flaky_val}",
+            f"[dim]patch:[/dim] {valid_val}"
+        )
+        console.print()
+        console.print(summary)
+
+    record["summary"] = "PASS" if validation_ok else "FAIL"
+    write_json(json_out, record)
+    return 0 if validation_ok else 1
 
 @click.group()
 def main():
