@@ -31,6 +31,8 @@ def generate_patch(source: str, findings: list[Finding]) -> str:
 def _apply_patch_for_finding(source: str, finding: Finding) -> str:
     """Apply a single patch based on finding pattern."""
     if finding.pattern == "unordered_iteration":
+        # if "next(iter" in finding.code_snippet:
+        #     return _patch_next_iter(source, finding)
         return _patch_unordered_iteration(source, finding)
     if finding.pattern == "unseeded_randomness":
         return _patch_unseeded_randomness(source, finding)
@@ -46,6 +48,16 @@ def _patch_unordered_iteration(source: str, finding: Finding) -> str:
     if lineno >= len(lines):
         return source
     line = lines[lineno]
+
+    if "next(iter(" in line:
+        new_line = re.sub(
+            r"next\(iter\((.+?)\)\)",
+            r"sorted(\1)[0]",
+            line,
+        )
+        if new_line != line:
+            lines[lineno] = new_line
+            return "".join(lines)
 
     # list(x.items()) -> sorted(x.items())
     if "list(" in line and (".items()" in line or ".keys()" in line or ".values()" in line):
@@ -70,7 +82,6 @@ def _patch_unordered_iteration(source: str, finding: Finding) -> str:
         return "".join(lines)
 
     return source
-
 
 def _patch_unseeded_randomness(source: str, finding: Finding) -> str:
     """Add random.seed() at the start of the test function."""

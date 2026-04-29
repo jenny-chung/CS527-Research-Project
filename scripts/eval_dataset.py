@@ -36,6 +36,10 @@ console = Console()
 
 DEFAULT_SEEDS = list(range(10))
 
+PASS = "[bold green]PASS[/bold green]"
+FAIL = "[bold red]FAIL[/bold red]"
+SKIP = "[dim]SKIP[/dim]"
+
 # Data classes
 @dataclass
 class Stage1Result:
@@ -179,6 +183,26 @@ def check_stage_3(prog_dir: Path, ground_truth: dict, seeds: list[int]) -> list[
 
     return results
 
+def _display_program_detail(result: ProgramResult) -> None:
+    """Print a detailed breakdown for one program."""
+    console.print(f"\n  [bold]{result.program}[/bold]")
+
+    # Stage 1
+    for r in result.stage_1:
+        icon = PASS if r.detected else FAIL
+        console.print(f"    A  {icon}  [dim]{r.test_id}[/dim]  [{r.pattern}]")
+
+    # Stage 2
+    for r in result.stage_2:
+        ok = r.all_pass and not r.is_flaky
+        icon = PASS if ok else FAIL
+        console.print(f"    B  {icon}  [dim]{r.test_id}[/dim]")
+
+    # Stage 1
+    for r in result.stage_3:
+        icon = PASS if r.validation_ok else (SKIP if not r.patch_changed else FAIL)
+        console.print(f"    C  {icon}  [dim]{r.test_id}[/dim]  [{r.pattern}]")
+
 def evaluate_program(prog_dir: Path, seeds: list[int]) -> ProgramResult:
     # Run all three stages for a program
     ground_truth_path = prog_dir/"ground_truth.json"
@@ -191,8 +215,64 @@ def evaluate_program(prog_dir: Path, seeds: list[int]) -> ProgramResult:
 
     return result
 
-def _display_program_detail(result: ProgramResult):
-    pass
+def _display_summary(results: list[ProgramResult]) -> None:
+    console.print()
+    console.rule("[bold white]Summary[/bold white]", style="bright_blue")
+    console.print()
+
+    table = Table(
+        box=box.SIMPLE_HEAD,
+        show_header=True,
+        header_style="bold dim",
+        padding=(0, 2),
+    )
+    table.add_column("Program",      justify="left",   width=28)
+    table.add_column("1  Detection", justify="center", width=14)
+    table.add_column("2  Stability", justify="center", width=14)
+    table.add_column("3  Repair",    justify="center", width=14)
+    table.add_column("Overall",      justify="center", width=10)
+
+    total_a_pass = total_a = 0
+    total_b_pass = total_b = 0
+    total_c_pass = total_c = 0
+
+    for r in results:
+        a_str = f"{r.stage_1_pass()}/{r.stage_1_total()}"
+        b_str = f"{r.stage_2_pass()}/{r.stage_2_total()}"
+        c_str = f"{r.stage_3_pass()}/{r.stage_3_total()}"
+
+        a_ok = r.stage_1_pass() == r.stage_1_total()
+        b_ok = r.stage_2_pass() == r.stage_2_total()
+        c_ok = r.stage_3_pass() == r.stage_3_total()
+        all_ok = a_ok and b_ok and c_ok
+
+        a_cell = f"[green]{a_str}[/green]" if a_ok else f"[red]{a_str}[/red]"
+        b_cell = f"[green]{b_str}[/green]" if b_ok else f"[red]{b_str}[/red]"
+        c_cell = f"[green]{c_str}[/green]" if c_ok else f"[red]{c_str}[/red]"
+        overall = "[bold green]✓[/bold green]" if all_ok else "[bold red]✗[/bold red]"
+
+        table.add_row(r.program, a_cell, b_cell, c_cell, overall)
+
+        total_a_pass += r.stage_1_pass(); total_a += r.stage_1_total()
+        total_b_pass += r.stage_2_pass(); total_b += r.stage_2_total()
+        total_c_pass += r.stage_3_pass(); total_c += r.stage_3_total()
+
+    # Totals row
+    table.add_section()
+    table.add_row(
+        "[bold]TOTAL[/bold]",
+        f"[bold]{total_a_pass}/{total_a}[/bold]",
+        f"[bold]{total_b_pass}/{total_b}[/bold]",
+        f"[bold]{total_c_pass}/{total_c}[/bold]",
+        "",
+    )
+
+    console.print(table)
+    console.print(
+        f"  A={total_a_pass}/{total_a} detected  "
+        f"B={total_b_pass}/{total_b} stable  "
+        f"C={total_c_pass}/{total_c} repaired"
+    )
 
 def main():
     # Arguments for evaluation
@@ -268,6 +348,10 @@ def main():
             progress.advance(task)
 
     elapsed = time.time() - start_time
+
+    # Summary table
+    _display_summary(all_results)
+    console.print(f"\n  [dim]Completed in {elapsed:.1f}s[/dim]")
 
 if __name__ == "__main__":
     main()
