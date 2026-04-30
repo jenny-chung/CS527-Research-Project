@@ -34,7 +34,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 from rich.console import Console
 console = Console()
 
-DEFAULT_SEEDS = list(range(10))
+DEFAULT_SEEDS = list(range(20))
 
 PASS = "[bold green]PASS[/bold green]"
 FAIL = "[bold red]FAIL[/bold red]"
@@ -126,7 +126,7 @@ def check_stage_2(prog_dir: Path, ground_truth: dict, seeds: list[int]) -> list[
         test_path = str(prog_dir/"tests"/test_id.replace("/", str(Path("/"))))
         cwd = _infer_cwd(test_path)
 
-        variant_results = run_test_with_variants(test_path, hash_seeds=seeds)
+        variant_results = run_test_with_variants(test_path, hash_seeds=seeds, cwd=cwd)
         all_pass = all(r.passed for r in variant_results)
         flaky = is_flaky(variant_results)
 
@@ -190,18 +190,18 @@ def _display_program_detail(result: ProgramResult) -> None:
     # Stage 1
     for r in result.stage_1:
         icon = PASS if r.detected else FAIL
-        console.print(f"    A  {icon}  [dim]{r.test_id}[/dim]  [{r.pattern}]")
+        console.print(f"    Stage 1  {icon}  [dim]{r.test_id}[/dim]  [{r.pattern}]")
 
     # Stage 2
     for r in result.stage_2:
         ok = r.all_pass and not r.is_flaky
         icon = PASS if ok else FAIL
-        console.print(f"    B  {icon}  [dim]{r.test_id}[/dim]")
+        console.print(f"    Stage 2  {icon}  [dim]{r.test_id}[/dim]")
 
     # Stage 1
     for r in result.stage_3:
         icon = PASS if r.validation_ok else (SKIP if not r.patch_changed else FAIL)
-        console.print(f"    C  {icon}  [dim]{r.test_id}[/dim]  [{r.pattern}]")
+        console.print(f"    Stage 3  {icon}  [dim]{r.test_id}[/dim]  [{r.pattern}]")
 
 def evaluate_program(prog_dir: Path, seeds: list[int]) -> ProgramResult:
     # Run all three stages for a program
@@ -217,7 +217,7 @@ def evaluate_program(prog_dir: Path, seeds: list[int]) -> ProgramResult:
 
 def _display_summary(results: list[ProgramResult]) -> None:
     console.print()
-    console.rule("[bold white]Summary[/bold white]", style="bright_blue")
+    console.rule("[bold white]Evaluation Summary[/bold white]", style="bright_blue")
     console.print()
 
     table = Table(
@@ -227,57 +227,57 @@ def _display_summary(results: list[ProgramResult]) -> None:
         padding=(0, 2),
     )
     table.add_column("Program",      justify="left",   width=28)
-    table.add_column("1  Detection", justify="center", width=14)
-    table.add_column("2  Stability", justify="center", width=14)
-    table.add_column("3  Repair",    justify="center", width=14)
+    table.add_column("1:  Detection", justify="center", width=14)
+    table.add_column("2:  Stability", justify="center", width=14)
+    table.add_column("3:  Repair",    justify="center", width=14)
     table.add_column("Overall",      justify="center", width=10)
 
-    total_a_pass = total_a = 0
-    total_b_pass = total_b = 0
-    total_c_pass = total_c = 0
+    total_stage_1_pass = total_stage_1 = 0
+    total_stage_2_pass = total_stage_2 = 0
+    total_stage_3_pass = total_stage_3 = 0
 
     for r in results:
-        a_str = f"{r.stage_1_pass()}/{r.stage_1_total()}"
-        b_str = f"{r.stage_2_pass()}/{r.stage_2_total()}"
-        c_str = f"{r.stage_3_pass()}/{r.stage_3_total()}"
+        stage_1_str = f"{r.stage_1_pass()}/{r.stage_1_total()}"
+        stage_2_str = f"{r.stage_2_pass()}/{r.stage_2_total()}"
+        stage_3_str = f"{r.stage_3_pass()}/{r.stage_3_total()}"
 
-        a_ok = r.stage_1_pass() == r.stage_1_total()
-        b_ok = r.stage_2_pass() == r.stage_2_total()
-        c_ok = r.stage_3_pass() == r.stage_3_total()
-        all_ok = a_ok and b_ok and c_ok
+        stage_1_ok = r.stage_1_pass() == r.stage_1_total()
+        stage_2_ok = r.stage_2_pass() == r.stage_2_total()
+        stage_3_ok = r.stage_3_pass() == r.stage_3_total()
+        all_ok = stage_1_ok and stage_2_ok and stage_3_ok
 
-        a_cell = f"[green]{a_str}[/green]" if a_ok else f"[red]{a_str}[/red]"
-        b_cell = f"[green]{b_str}[/green]" if b_ok else f"[red]{b_str}[/red]"
-        c_cell = f"[green]{c_str}[/green]" if c_ok else f"[red]{c_str}[/red]"
+        a_cell = f"[green]{stage_1_str}[/green]" if stage_1_ok else f"[red]{stage_1_str}[/red]"
+        b_cell = f"[green]{stage_2_str}[/green]" if stage_2_ok else f"[red]{stage_2_str}[/red]"
+        c_cell = f"[green]{stage_3_str}[/green]" if stage_3_ok else f"[red]{stage_3_str}[/red]"
         overall = "[bold green]✓[/bold green]" if all_ok else "[bold red]✗[/bold red]"
 
         table.add_row(r.program, a_cell, b_cell, c_cell, overall)
 
-        total_a_pass += r.stage_1_pass(); total_a += r.stage_1_total()
-        total_b_pass += r.stage_2_pass(); total_b += r.stage_2_total()
-        total_c_pass += r.stage_3_pass(); total_c += r.stage_3_total()
+        total_stage_1_pass += r.stage_1_pass(); total_stage_1 += r.stage_1_total()
+        total_stage_2_pass += r.stage_2_pass(); total_stage_2 += r.stage_2_total()
+        total_stage_3_pass += r.stage_3_pass(); total_stage_3 += r.stage_3_total()
 
     # Totals row
     table.add_section()
     table.add_row(
         "[bold]TOTAL[/bold]",
-        f"[bold]{total_a_pass}/{total_a}[/bold]",
-        f"[bold]{total_b_pass}/{total_b}[/bold]",
-        f"[bold]{total_c_pass}/{total_c}[/bold]",
+        f"[bold]{total_stage_1_pass}/{total_stage_1}[/bold]",
+        f"[bold]{total_stage_2_pass}/{total_stage_2}[/bold]",
+        f"[bold]{total_stage_3_pass}/{total_stage_3}[/bold]",
         "",
     )
 
     console.print(table)
     console.print(
-        f"  A={total_a_pass}/{total_a} detected  "
-        f"B={total_b_pass}/{total_b} stable  "
-        f"C={total_c_pass}/{total_c} repaired"
+        f"Stage 1={total_stage_1_pass}/{total_stage_1} detected  "
+        f"Stage 2={total_stage_2_pass}/{total_stage_2} stable  "
+        f"Stage 3={total_stage_3_pass}/{total_stage_3} repaired"
     )
 
 def main():
     # Arguments for evaluation
     parser = argparse.ArgumentParser(
-        description="PyIDFix batch evaluation across eval_dataset/programs/",
+        description="PyIDFix evaluation across eval_dataset/programs/",
     )
     parser.add_argument(
         "--seeds", type=int, default=10, metavar="N",
@@ -320,7 +320,7 @@ def main():
     console.print()
     console.print(Panel(
         f"[bold white]Evaluating {len(prog_dirs)} program(s)[/bold white]\n"
-        f"[dim]{args.seeds} seeds per test  ·  Stages 1 / 2 / 3[/dim]",
+        f"[dim]{args.seeds} seeds per test  ·  Stages 1, 2, and 3[/dim]",
         title="[bold bright_blue] PyIDFix Evaluation [/bold bright_blue]",
         border_style="bright_blue",
         padding=(0, 2),
@@ -352,6 +352,8 @@ def main():
     # Summary table
     _display_summary(all_results)
     console.print(f"\n  [dim]Completed in {elapsed:.1f}s[/dim]")
+
+    # TODO: Write results to json
 
 if __name__ == "__main__":
     main()
