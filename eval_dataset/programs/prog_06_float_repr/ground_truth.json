@@ -1,0 +1,21 @@
+{
+  "program": "prog_06_float_repr",
+  "flaky_tests": [
+    {
+      "test_id": "test_flaky.py::test_seventh_fraction_literal",
+      "pattern": "float_equality",
+      "root_cause": "Exact == on 1/7; the float literal 0.14285714285714285 may not match computed value exactly on all platforms",
+      "expected_fix": "Use pytest.approx(0.14285714285714285)"
+    },
+    {
+      "test_id": "test_flaky.py::test_average_float_exact",
+      "pattern": "float_equality",
+      "root_cause": "0.1 + 0.2 + 0.3 has binary representation error; result is 0.20000000000000004, not 0.2",
+      "expected_fix": "Use pytest.approx(0.2)"
+    }
+  ],
+  "deterministic_tests": [
+    "test_deterministic.py::test_seventh_approx",
+    "test_deterministic.py::test_average_approx"
+  ]
+}

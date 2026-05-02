@@ -14,4 +14,4 @@ def test_random_shuffle():
     import random
     lst = [1, 2, 3]
     random.shuffle(lst)
-    assert lst == [3, 1, 2]
+    assert lst == [2, 1, 3]  # matches random.seed(42)

@@ -45,3 +45,8 @@ Thumbs.db
 # Project-specific
 *.log
 .cache/
+
+# PyIDFix generated patch artifacts (written by eval script and demo pipeline)
+eval_dataset/**/test_flaky_patched.py
+eval_dataset/**/test_deterministic_patched.py
+eval_results/

@@ -1,0 +1,21 @@
+{
+  "program": "prog_05_random_choice",
+  "flaky_tests": [
+    {
+      "test_id": "test_flaky.py::test_choice_expects_specific_value",
+      "pattern": "unseeded_randomness",
+      "root_cause": "random.choice() called without random.seed(); result is non-deterministic across runs",
+      "expected_fix": "Add random.seed(42) before random.choice()"
+    },
+    {
+      "test_id": "test_flaky.py::test_sample_priority",
+      "pattern": "unseeded_randomness",
+      "root_cause": "random.sample() called without random.seed(); selected elements vary across runs",
+      "expected_fix": "Add random.seed(42) before random.sample()"
+    }
+  ],
+  "deterministic_tests": [
+    "test_deterministic.py::test_choice_seeded",
+    "test_deterministic.py::test_sample_seeded"
+  ]
+}
