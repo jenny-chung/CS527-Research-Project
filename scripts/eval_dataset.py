@@ -353,7 +353,29 @@ def main():
     _display_summary(all_results)
     console.print(f"\n  [dim]Completed in {elapsed:.1f}s[/dim]")
 
-    # TODO: Write results to json
+    # Write results to JSON for benchmarking / plotting scripts
+    out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "programs": [asdict(r) for r in all_results],
+        "totals": {
+            "stage_1": {
+                "pass": sum(r.stage_1_pass() for r in all_results),
+                "total": sum(r.stage_1_total() for r in all_results),
+            },
+            "stage_2": {
+                "pass": sum(r.stage_2_pass() for r in all_results),
+                "total": sum(r.stage_2_total() for r in all_results),
+            },
+            "stage_3": {
+                "pass": sum(r.stage_3_pass() for r in all_results),
+                "total": sum(r.stage_3_total() for r in all_results),
+            },
+        },
+        "elapsed_s": round(elapsed, 2),
+    }
+    out_path.write_text(json.dumps(payload, indent=2))
+    console.print(f"  [dim]Results written → {out_path}[/dim]\n")
 
 if __name__ == "__main__":
     main()
