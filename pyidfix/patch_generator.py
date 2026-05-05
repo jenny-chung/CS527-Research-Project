@@ -50,14 +50,27 @@ def _patch_unordered_iteration(source: str, finding: Finding) -> str:
     line = lines[lineno]
 
     if "next(iter(" in line:
-        new_line = re.sub(
-            r"next\(iter\((.+?)\)\)",
-            r"sorted(\1)[0]",
-            line,
-        )
-        if new_line != line:
-            lines[lineno] = new_line
+        # assert next(iter(collection)) == expected  →  assert expected in collection
+        inline_match = re.match(r'(\s*)assert\s+next\(iter\((.+?)\)\)\s*==\s*(.+?)\s*$', line)
+        if inline_match:
+            indent, collection, expected = inline_match.group(1), inline_match.group(2), inline_match.group(3)
+            lines[lineno] = f'{indent}assert {expected} in {collection}\n'
             return "".join(lines)
+
+        # tmp = next(iter(collection))  →  find assert tmp == expected  →  assert expected in collection
+        assign_match = re.match(r'(\s*)(\w+)\s*=\s*next\(iter\((.+?)\)\)', line)
+        if assign_match:
+            tmp_var, collection = assign_match.group(2), assign_match.group(3)
+            for i in range(lineno + 1, min(lineno + 8, len(lines))):
+                assert_match = re.match(
+                    rf'(\s*)assert\s+{re.escape(tmp_var)}\s*==\s*(.+?)\s*$', lines[i]
+                )
+                if assert_match:
+                    assert_indent, expected = assert_match.group(1), assert_match.group(2)
+                    lines[lineno] = ''
+                    lines[i] = f'{assert_indent}assert {expected} in {collection}\n'
+                    return "".join(lines)
+        return "".join(lines)
 
     # list(x.items()) -> sorted(x.items())
     if "list(" in line and (".items()" in line or ".keys()" in line or ".values()" in line):
@@ -112,6 +125,17 @@ def _patch_unseeded_randomness(source: str, finding: Finding) -> str:
                         lines.insert(i + 1, indent + "random.seed(42)\n")
                     return "".join(lines)
             lines.insert(insert_idx, indent + "random.seed(42)\n")
+            return "".join(lines)
+
+            # No existing import random found — insert seed and ensure module-level import
+            lines.insert(insert_idx, indent + "random.seed(42)\n")
+
+            if not any("import random" in ln for ln in lines):
+                for i, ln in enumerate(lines):
+                    if ln.strip() and not ln.strip().startswith("#"):
+                        lines.insert(i, "import random\n")
+                        break
+
             return "".join(lines)
     return source
 

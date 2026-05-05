@@ -25,7 +25,7 @@ from pyidfix.variant_generator import VariantResult, _infer_cwd, is_flaky, run_t
 from pyidfix.patch_generator import generate_patch
 from pyidfix.validator import validate_patched_test, validate_patched_file
 
-DEFAULT_SEEDS = list(range(20))
+DEFAULT_SEEDS = list(range(10))
 
 PATTERN_COLORS = {
     "unordered_iteration": "cornflower_blue",
