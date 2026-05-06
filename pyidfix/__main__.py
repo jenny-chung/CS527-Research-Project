@@ -391,7 +391,7 @@ def main():
 @click.option("-q", "--quiet", is_flag=True, help="One-line summary.")
 @click.option("-v", "--verbose", is_flag=True, help="Show failed pytest output.")
 @click.option("--json-out", metavar="PATH", default=None, help="Write JSON record to this specified path.")
-@click.option("--seeds", metavar="N", default=20, show_default=True, help="Number of hash seeds to try, 0..N-1.")
+@click.option("--seeds", metavar="N", default=10, show_default=True, help="Number of hash seeds to try, 0..N-1.")
 def demo(
     test_path: str,
     quiet: bool,

@@ -26,10 +26,10 @@
       "expected_fix": "Use sorted(d)"
     },
     {
-      "test_id": "test_flaky.py::test_set_first_element",
+      "test_id": "test_flaky.py::test_set_element",
       "pattern": "unordered_iteration",
       "root_cause": "Set iteration order varies with PYTHONHASHSEED",
-      "expected_fix": "Use sorted(s)"
+      "expected_fix": "Use assert x in s"
     }
   ],
   "deterministic_tests": [

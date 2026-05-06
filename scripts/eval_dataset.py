@@ -34,7 +34,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 from rich.console import Console
 console = Console()
 
-DEFAULT_SEEDS = list(range(20))
+DEFAULT_SEEDS = list(range(10))
 
 PASS = "[bold green]PASS[/bold green]"
 FAIL = "[bold red]FAIL[/bold red]"

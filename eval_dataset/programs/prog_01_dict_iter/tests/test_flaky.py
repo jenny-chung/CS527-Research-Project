@@ -30,11 +30,11 @@ def test_dict_values_direct():
     assert keys == ["m", "n", "o"]
 
 
-def test_set_first_element():
+def test_set_element():
     """
-    FLAKY: Set iteration order varies. This test passes when 'apple' is first,
+    FLAKY: Set iteration order varies. This test passes when 'apple' is next,
     fails otherwise. Used to demonstrate pass/fail variance across hash seeds.
     """
     s = {"apple", "banana", "cherry"}
-    first = next(iter(s))
-    assert first == "apple"
+    element = next(iter(s))
+    assert element == "apple"
